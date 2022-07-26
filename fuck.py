@@ -1,5 +1,5 @@
 from scapy.all import *
-import numpy as np
+import zlib
 import leb128
 
 
@@ -53,25 +53,22 @@ p2 = leb128.u.encode(packet2_size) + packet2
 #     return a
 
 def getPacketId():
-    a = 0
+    incomingPacket = 0
     totalPacket = b''
     totalSize = 0
     for i in range(1, 5):
         totalPacket += s.recv(1)
         tmp = leb128.u.decode(totalPacket)
-        print(tmp)
-        if (a == tmp):
+        if (incomingPacket == tmp):
             break
-        a = tmp
+        incomingPacket = tmp
         totalSize += 1
-    totalSize += a
-    print('Incoming ' + str(a))
+    totalSize += incomingPacket
+    print('Incoming ' + str(incomingPacket))
     print('Total ' + str(totalSize))
     print(totalPacket)
-    return a
+    return incomingPacket
 
-
-print("aaa" + str(packet1_size))
 
 
 try:
@@ -82,9 +79,34 @@ try:
 
 
 
-    dick = s.recv(getPacketId())
+    packet3 = s.recv(getPacketId())
+    print(packet3)
+    print(hex(packet3[0]))
     print("[+] Received Total")
 except Exception as e:
     raise e
 
-print(int.from_bytes(b'\x80', byteorder='big'))
+# print(int.from_bytes(b'\x80', byteorder='big'))
+
+# found = False
+
+while True:
+    a =s.recv(getPacketId())
+    try:
+        if hex(a[0]) == hex(0x1E):
+            keepAliveData = b'\x11' + a[1:]
+            keepAlive = leb128.u.encode(len(keepAliveData)) + leb128.u.encode(len(a[1:])) + zlib.compress(leb128.u.encode(hex(0x11))) + zlib.compress(a[1:])
+        
+            print("##################")
+
+            print("a: " + str(a))
+            print("keepAlive: " + str(keepAlive))
+            # s.send(keepAlive)
+            break
+        if a == b'':
+
+            break
+    except Exception as e:
+        print(e)
+
+
