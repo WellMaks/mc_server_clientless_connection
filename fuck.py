@@ -2,6 +2,7 @@ from scapy.all import *
 import zlib
 import leb128
 from modules.varInt import varInt
+import time
 
 #Handshake
 packet_id = 0 #hex
@@ -22,8 +23,8 @@ has_sig_data = bool(0) #Bool  send next 5 fields?
 # signature =   # optional / same condition   
 
 # without compression
-def createPacket(*argv):
-    packetContent = b'\x00'
+def createPacket(packetId, *argv):
+    packetContent = packetId
     for arg in argv:
         if isinstance(arg, bool):
             arg = arg.to_bytes(1, 'little')
@@ -35,14 +36,23 @@ def createPacket(*argv):
             content = bytes(arg, 'utf-8')
             contentLen = len(arg)
             arg = bytes(varInt(contentLen)) + content
+        # if isinstance(arg, (bytes, bytearray)):
+
             
         packetContent += arg
     packetLen = len(packetContent)
     packet = leb128.u.encode(packetLen) + packetContent
+
+    # print("sending packet: " + str(packet) + "  with length of: " + str(packetLen) + " and id: " + str(packetId))
     return packet
 
-p1 = createPacket(protocol_version, server_addr, server_port, next_state)
-p2 = createPacket(name, has_sig_data)
+p1 = createPacket(b'\x00', protocol_version, server_addr, server_port, next_state)
+p2 = createPacket(b'\x00', name, has_sig_data)
+
+def createCompressedPacket(packetId, packetLen, dataLen, data):
+    packetContent = bytes(varInt(packetLen)) + bytes(varInt(dataLen)) + zlib.compress(bytes(varInt(packetId))) + zlib.compress(data)
+    print("sent: " + str(packetContent))
+    return packetContent
 
 def getPacketId():
     incomingPacket = 0
@@ -56,42 +66,92 @@ def getPacketId():
         incomingPacket = tmp
         totalSize += 1
     totalSize += incomingPacket
-    print('Incoming ' + str(incomingPacket))
-    print('Total ' + str(totalSize))
-    print(totalPacket)
+    # print('Incoming ' + str(incomingPacket))
+    # print('Total ' + str(totalSize))
+    # print(totalPacket)
     return incomingPacket
 
+def getCompressedPacket():
+    incomingPacket = 0
+    totalPacket = b''
+    totalSize = 0 # Packet Length
+    data = b''
+    dataSize = 0
+    for i in range(1, 5):
+        totalPacket += s.recv(1)
+        tmp = leb128.u.decode(totalPacket)
+        if (incomingPacket == tmp):
+            break
+        totalSize += 1
+
+    for j in range(1, 5):
+        data += s.recv(1)
+        totalPacket += data
+        tmp = leb128.u.decode(data)
+        if (incomingPacket == tmp or tmp == 0):
+            break
+        incomingPacket = tmp
+        totalSize += 1
+        dataSize += 1
+    totalSize += incomingPacket
+
+    # print("incoming packet: " + str(incomingPacket))
+    # print("total size: " + str(totalSize))
+    # print("data size: " + str(dataSize))
+
+    return [incomingPacket, totalSize, dataSize]
 
 
 try:
+    #Connect to Server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("127.0.0.1",25565))
+    #Handshake and Login Start
     s.send(p1)
     s.send(p2)
 
-
-
+    #Login Packet
     packet3 = s.recv(getPacketId())
     print(packet3)
-    print(hex(packet3[0]))
     print("[+] Received Total")
+
 except Exception as e:
     raise e
 
-# found = False
 
-# keep alive to fix
+# while True:
+#     b = getCompressedPacket()
+#     a = s.recv(b[0])
+#     try:
+#         if hex(a[0]) == hex(0x1E) or hex(a[0]) == hex(0x1e):
+#             print("found!")
+#             print("recived: " + str(a))
+#             time.sleep(2)
+#             # b = createPacket(b'\x11', a[1:])
+#             # print("sent: " + str(b))
+#             # s.send(b)
+#             try:
+#                 s.send(createCompressedPacket(b'x\11', b[1], b[2], b[0]))
+#             except Exception as e:
+#                 print(e)  
+
+#     except Exception as e:
+#         pass
+
 while True:
-    a =s.recv(getPacketId())
-    try:
-        if hex(a[0]) == hex(0x1E):
-            keepAliveData = b'\x11' + a[1:]
-            keepAlive = leb128.u.encode(len(keepAliveData)) + leb128.u.encode(len(a[1:])) + zlib.compress(leb128.u.encode(hex(0x11))) + zlib.compress(a[1:])
 
-            # s.send(keepAlive)
-            break
+    a = s.recv(getPacketId())
+    try:
+        if hex(a[0]) == hex(0x1e):
+            print("found!")
+            print("recived: " + str(a))
+            time.sleep(2)
+            try:
+                b = createPacket(b'\x11', a[1:], b'\x00')
+                print(b)
+                s.send(b)
+            except Exception as e:
+                print(e)  
 
     except Exception as e:
-        print(e)
-
-
+        pass
