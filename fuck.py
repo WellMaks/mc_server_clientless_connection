@@ -17,10 +17,7 @@ packet_login = 0
 name = 'abc' #String(16) players username
 name_length = varInt(len(name.encode('utf-8')))
 has_sig_data = bool(0) #Bool  send next 5 fields?
-# timestamp =    # optional / if sig data is true
-# public_key_length =     # optional / same condition
-# public_key =     # optional / same condition
-# signature =   # optional / same condition   
+
 
 # without compression
 def createPacket(packetId, *argv):
@@ -36,11 +33,10 @@ def createPacket(packetId, *argv):
             content = bytes(arg, 'utf-8')
             contentLen = len(arg)
             arg = bytes(varInt(contentLen)) + content
-        # if isinstance(arg, (bytes, bytearray)):
 
             
         packetContent += arg
-    packetLen = len(packetContent)
+    packetLen = len(packetContent) 
     packet = leb128.u.encode(packetLen) + packetContent
 
     # print("sending packet: " + str(packet) + "  with length of: " + str(packetLen) + " and id: " + str(packetId))
@@ -49,58 +45,57 @@ def createPacket(packetId, *argv):
 p1 = createPacket(b'\x00', protocol_version, server_addr, server_port, next_state)
 p2 = createPacket(b'\x00', name, has_sig_data)
 
-def createCompressedPacket(packetId, packetLen, dataLen, data):
-    packetContent = bytes(varInt(packetLen)) + bytes(varInt(dataLen)) + zlib.compress(bytes(varInt(packetId))) + zlib.compress(data)
-    print("sent: " + str(packetContent))
-    return packetContent
+
+# def getPacketId():
+#     incomingPacket = 0
+#     totalPacket = b''
+#     totalSize = 0
+#     for i in range(1, 5):
+#         totalPacket += s.recv(1)
+#         tmp = leb128.u.decode(totalPacket)
+#         if (incomingPacket == tmp):
+#             break
+#         incomingPacket = tmp
+#         totalSize += 1
+#     totalSize += incomingPacket
+#     # print('Incoming ' + str(incomingPacket))
+#     # print('Total ' + str(totalSize))
+#     # print(totalPacket)
+#     return incomingPacket
+
 
 def getPacketId():
-    incomingPacket = 0
-    totalPacket = b''
+    size = 0
+    id = 0
+    packetSize = b''
+    packetId = b''
     totalSize = 0
-    for i in range(1, 5):
-        totalPacket += s.recv(1)
-        tmp = leb128.u.decode(totalPacket)
-        if (incomingPacket == tmp):
-            break
-        incomingPacket = tmp
-        totalSize += 1
-    totalSize += incomingPacket
-    # print('Incoming ' + str(incomingPacket))
-    # print('Total ' + str(totalSize))
-    # print(totalPacket)
-    return incomingPacket
 
-def getCompressedPacket():
-    incomingPacket = 0
-    totalPacket = b''
-    totalSize = 0 # Packet Length
-    data = b''
-    dataSize = 0
     for i in range(1, 5):
-        totalPacket += s.recv(1)
-        tmp = leb128.u.decode(totalPacket)
-        if (incomingPacket == tmp):
-            break
-        totalSize += 1
+        packetSize += s.recv(1)
+        tmp = leb128.u.decode(packetSize)
+        print("a:" + str(tmp))
+        if (size == tmp):
+            break  
+        size = tmp
+        # totalSize += 1
+    totalSize += size
 
     for j in range(1, 5):
-        data += s.recv(1)
-        totalPacket += data
-        tmp = leb128.u.decode(data)
-        if (incomingPacket == tmp or tmp == 0):
+        packetId += s.recv(1)
+        tmp = leb128.u.decode(packetId)
+        print("b:" + str(tmp))
+        if (id == tmp):
             break
-        incomingPacket = tmp
-        totalSize += 1
-        dataSize += 1
-    totalSize += incomingPacket
-
-    # print("incoming packet: " + str(incomingPacket))
-    # print("total size: " + str(totalSize))
-    # print("data size: " + str(dataSize))
-
-    return [incomingPacket, totalSize, dataSize]
-
+        id = tmp
+    print("")
+    print("================")
+    print("")
+    print("ID: " + str(packetId))
+    print("Size: " + str(packetSize) + " (" + str(int.from_bytes(packetSize, "little")) + ")")
+    print('Total Size: ' + str(totalSize))
+    print("")
+    return totalSize
 
 try:
     #Connect to Server
@@ -114,44 +109,31 @@ try:
     packet3 = s.recv(getPacketId())
     print(packet3)
     print("[+] Received Total")
+    print(s.recv(getPacketId()))
+    print(s.recv(getPacketId()))
+    print(s.recv(getPacketId()))
+
 
 except Exception as e:
     raise e
 
 
+
 # while True:
-#     b = getCompressedPacket()
-#     a = s.recv(b[0])
+
+#     a = s.recv(getPacketId())
 #     try:
-#         if hex(a[0]) == hex(0x1E) or hex(a[0]) == hex(0x1e):
+#         if hex(a[0]) == hex(0x1e):
 #             print("found!")
 #             print("recived: " + str(a))
-#             time.sleep(2)
-#             # b = createPacket(b'\x11', a[1:])
-#             # print("sent: " + str(b))
-#             # s.send(b)
-#             try:
-#                 s.send(createCompressedPacket(b'x\11', b[1], b[2], b[0]))
-#             except Exception as e:
-#                 print(e)  
+#             # time.sleep(4)
+#             s.send(createPacket(b'\x07',b'\x11', a[1:]))
+#             # try:
+#             #     b = createPacket(b'\x11', b'\x00')
+#             #     print(b)
+#             #     s.send(b)
+#             # except Exception as e:
+#             #     print(e)  
 
 #     except Exception as e:
 #         pass
-
-while True:
-
-    a = s.recv(getPacketId())
-    try:
-        if hex(a[0]) == hex(0x1e):
-            print("found!")
-            print("recived: " + str(a))
-            time.sleep(2)
-            try:
-                b = createPacket(b'\x11', a[1:], b'\x00')
-                print(b)
-                s.send(b)
-            except Exception as e:
-                print(e)  
-
-    except Exception as e:
-        pass
