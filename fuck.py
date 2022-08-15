@@ -45,57 +45,58 @@ def createPacket(packetId, *argv):
 p1 = createPacket(b'\x00', protocol_version, server_addr, server_port, next_state)
 p2 = createPacket(b'\x00', name, has_sig_data)
 
+def readVarInt(buffer):
+    value = 0
+    length = 0
+    currentByte = b''
 
-# def getPacketId():
-#     incomingPacket = 0
-#     totalPacket = b''
-#     totalSize = 0
-#     for i in range(1, 5):
-#         totalPacket += s.recv(1)
-#         tmp = leb128.u.decode(totalPacket)
-#         if (incomingPacket == tmp):
-#             break
-#         incomingPacket = tmp
-#         totalSize += 1
-#     totalSize += incomingPacket
-#     # print('Incoming ' + str(incomingPacket))
-#     # print('Total ' + str(totalSize))
-#     # print(totalPacket)
-#     return incomingPacket
-
-
-def getPacketId():
-    size = 0
-    id = 0
-    packetSize = b''
-    packetId = b''
-    totalSize = 0
-
-    for i in range(1, 5):
-        packetSize += s.recv(1)
-        tmp = leb128.u.decode(packetSize)
-        print("a:" + str(tmp))
-        if (size == tmp):
-            break  
-        size = tmp
-        # totalSize += 1
-    totalSize += size
-
-    for j in range(1, 5):
-        packetId += s.recv(1)
-        tmp = leb128.u.decode(packetId)
-        print("b:" + str(tmp))
-        if (id == tmp):
+    while(True):
+        currentByte = buffer[length]
+        value |= (currentByte & 0x7f) << (length * 7)
+        length += 1
+        if(length > 5):
+            print("VarInt too long")
+        if(currentByte & 0x80) != 0x80:
             break
-        id = tmp
-    print("")
-    print("================")
-    print("")
-    print("ID: " + str(packetId))
-    print("Size: " + str(packetSize) + " (" + str(int.from_bytes(packetSize, "little")) + ")")
-    print('Total Size: ' + str(totalSize))
-    print("")
-    return totalSize
+    # print("len: " + str(length))
+    return value, length
+
+def getPacket(encoded=False):
+
+    buffer = s.recv(1)  #packet size
+    lenBuffer = 1
+
+    for i in range(1, 4):
+        buffer += s.recv(1)
+        result = readVarInt(buffer)
+        temp = result[1]
+        if(lenBuffer == temp):
+            break
+        lenBuffer = temp
+    contentSize = int(result[0]) - 1
+    packetContentRecived = s.recv(contentSize)
+    packetContent = bytearray(buffer[-1:]) + bytearray(packetContentRecived) 
+
+    # print("")
+    # print("Packet Size: " + str(buffer[:-1]))
+
+    if (encoded):
+        dataSize = readVarInt(packetContent)
+        id = readVarInt(packetContent[dataSize[1]:])
+        id2 = bytes(leb128.u.encode(id[0]))
+        content = bytes(packetContent[id[1]+dataSize[1]:])
+        # print("Data Size: " + str(bytes(leb128.u.encode(dataSize[0]))))
+        # print("Id: " + str(id2))
+        # print("Content: " + str(content))
+    else:
+        id = readVarInt(packetContent)
+        id2 = bytes(leb128.u.encode(id[0]))
+        content = bytes(packetContent[id[1]:])
+        # print("Id: " + str(id2))
+        # print("Content: " + str(content))
+    # print("")
+    return id2, content
+
 
 try:
     #Connect to Server
@@ -106,12 +107,10 @@ try:
     s.send(p2)
 
     #Login Packet
-    packet3 = s.recv(getPacketId())
-    print(packet3)
+
+    getPacket(False)
+    getPacket(False)
     print("[+] Received Total")
-    print(s.recv(getPacketId()))
-    print(s.recv(getPacketId()))
-    print(s.recv(getPacketId()))
 
 
 except Exception as e:
@@ -119,21 +118,16 @@ except Exception as e:
 
 
 
-# while True:
+while (True):
+    try:
+        a = getPacket(True)
+        # print(a[0])
+        if a[0] == b'\x1e':
+            print("found!")
+            print("recived: " + str(a[1]))
+            time.sleep(2)
+            s.send(createPacket(b'\x08',b'\x11', a[1]))
 
-#     a = s.recv(getPacketId())
-#     try:
-#         if hex(a[0]) == hex(0x1e):
-#             print("found!")
-#             print("recived: " + str(a))
-#             # time.sleep(4)
-#             s.send(createPacket(b'\x07',b'\x11', a[1:]))
-#             # try:
-#             #     b = createPacket(b'\x11', b'\x00')
-#             #     print(b)
-#             #     s.send(b)
-#             # except Exception as e:
-#             #     print(e)  
 
-#     except Exception as e:
-#         pass
+    except Exception as e:
+        pass
