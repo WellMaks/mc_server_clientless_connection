@@ -62,40 +62,29 @@ def readVarInt(buffer):
     return value, length
 
 def getPacket(encoded=False):
-
-    buffer = s.recv(1)  #packet size
-    lenBuffer = 1
-
-    for i in range(1, 4):
-        buffer += s.recv(1)
-        result = readVarInt(buffer)
-        temp = result[1]
-        if(lenBuffer == temp):
-            break
-        lenBuffer = temp
-    contentSize = int(result[0]) - 1
-    packetContentRecived = s.recv(contentSize)
-    packetContent = bytearray(buffer[-1:]) + bytearray(packetContentRecived) 
-
-    # print("")
-    # print("Packet Size: " + str(buffer[:-1]))
-
+    buffer = s.recv(1)
+    for i in range(4):
+        try:
+            readVarInt(buffer)
+        except:
+            buffer += s.recv(1)
+    readSize = readVarInt(buffer)
+    readContent = s.recv(readSize[0])
+    # print(readContent)
     if (encoded):
-        dataSize = readVarInt(packetContent)
-        id = readVarInt(packetContent[dataSize[1]:])
-        id2 = bytes(leb128.u.encode(id[0]))
-        content = bytes(packetContent[id[1]+dataSize[1]:])
-        # print("Data Size: " + str(bytes(leb128.u.encode(dataSize[0]))))
-        # print("Id: " + str(id2))
-        # print("Content: " + str(content))
+        dataSize = readVarInt(readContent)
+        id = readVarInt(readContent[dataSize[1]:])
+        content = bytes(readContent[id[1]+dataSize[1]:])
+        print("Id: " + str(bytes(leb128.u.encode(id[0]))))
+        print("Content: " + str(content))
+        
     else:
-        id = readVarInt(packetContent)
-        id2 = bytes(leb128.u.encode(id[0]))
-        content = bytes(packetContent[id[1]:])
-        # print("Id: " + str(id2))
-        # print("Content: " + str(content))
-    # print("")
-    return id2, content
+        id = readVarInt(readContent)
+        content = bytes(readContent[id[1]:])
+        print("Id: " + str(bytes(leb128.u.encode(id[0]))))
+        print("Content: " + str(content))
+    print("")
+    return id, content
 
 
 try:
@@ -109,7 +98,8 @@ try:
     #Login Packet
 
     getPacket(False)
-    getPacket(False)
+
+
     print("[+] Received Total")
 
 
@@ -118,16 +108,16 @@ except Exception as e:
 
 
 
-while (True):
+for i in range(6):
     try:
         a = getPacket(True)
         # print(a[0])
         if a[0] == b'\x1e':
             print("found!")
             print("recived: " + str(a[1]))
-            time.sleep(2)
-            s.send(createPacket(b'\x08',b'\x11', a[1]))
+            # time.sleep(2)
+            # s.send(createPacket(b'\x08',b'\x11', a[1]))
 
 
     except Exception as e:
-        pass
+        print(e)
