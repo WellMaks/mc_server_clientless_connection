@@ -45,7 +45,8 @@ def createPacket(packetId, *argv):
 p1 = createPacket(b'\x00', protocol_version, server_addr, server_port, next_state)
 p2 = createPacket(b'\x00', name, has_sig_data)
 
-def readVarInt(buffer):
+def readVarInt():
+    buffer = s.recv(1)
     value = 0
     length = 0
     currentByte = b''
@@ -58,33 +59,28 @@ def readVarInt(buffer):
             print("VarInt too long")
         if(currentByte & 0x80) != 0x80:
             break
+        buffer+=s.recv(1)
     # print("len: " + str(length))
     return value, length
 
 def getPacket(encoded=False):
-    buffer = s.recv(1)
-    for i in range(4):
-        try:
-            readVarInt(buffer)
-        except:
-            buffer += s.recv(1)
-    readSize = readVarInt(buffer)
-    readContent = s.recv(readSize[0])
-    # print(readContent)
+
+    readSize = readVarInt()
+
     if (encoded):
-        dataSize = readVarInt(readContent)
-        id = readVarInt(readContent[dataSize[1]:])
-        content = bytes(readContent[id[1]+dataSize[1]:])
-        print("Id: " + str(bytes(leb128.u.encode(id[0]))))
-        print("Content: " + str(content))
-        
+        dataSize = readVarInt()
+        id = readVarInt()
+        content = s.recv(readSize[0] - dataSize[1] - id[1])
+        # print("Id: " + str(bytes(leb128.u.encode(id[0]))))
+        # print("Content: " + str(content))
     else:
-        id = readVarInt(readContent)
-        content = bytes(readContent[id[1]:])
-        print("Id: " + str(bytes(leb128.u.encode(id[0]))))
-        print("Content: " + str(content))
-    print("")
-    return id, content
+        id = readVarInt()
+        content = s.recv(readSize[0] - id[1])
+    #     print("Id: " + str(bytes(leb128.u.encode(id[0]))))
+    #     print("Content: " + str(content))
+    # print("")
+
+    return bytes(leb128.u.encode(id[0])), content
 
 
 try:
@@ -108,16 +104,16 @@ except Exception as e:
 
 
 
-for i in range(6):
+while(True):
     try:
         a = getPacket(True)
         # print(a[0])
         if a[0] == b'\x1e':
             print("found!")
             print("recived: " + str(a[1]))
-            # time.sleep(2)
-            # s.send(createPacket(b'\x08',b'\x11', a[1]))
+        #     # time.sleep(2)
+        #     # s.send(createPacket(b'\x08',b'\x11', a[1]))
 
 
     except Exception as e:
-        print(e)
+        break
