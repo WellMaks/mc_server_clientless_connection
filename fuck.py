@@ -80,7 +80,7 @@ def getPacket(encoded=False):
     #     print("Content: " + str(content))
     # print("")
 
-    return bytes(leb128.u.encode(id[0])), content
+    return bytes(leb128.u.encode(id[0])), content, bytes(leb128.u.encode(readSize[0]))
 
 
 try:
@@ -92,10 +92,7 @@ try:
     s.send(p2)
 
     #Login Packet
-
     getPacket(False)
-
-
     print("[+] Received Total")
 
 
@@ -111,8 +108,9 @@ while(True):
         if a[0] == b'\x1e':
             print("found!")
             print("recived: " + str(a[1]))
-        #     # time.sleep(2)
-        #     # s.send(createPacket(b'\x08',b'\x11', a[1]))
+            print("size: " + str(a[2]))
+            # time.sleep(2)
+            s.send(b'\n' + b'\x00' + b'\x11' + a[1])
 
 
     except Exception as e:
