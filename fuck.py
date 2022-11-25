@@ -6,6 +6,8 @@ import time
 import struct
 import json
 from threading import Thread
+from datetime import datetime
+
 
 #Handshake
 packet_id = 0 #hex
@@ -88,7 +90,20 @@ def getPacket(encoded=False):
     # print("")
 
     return bytes(leb128.u.encode(id[0])), content, bytes(leb128.u.encode(readSize[0]))
-    
+
+def sendMessage(message):
+    if(len(message) > 256):
+        print("Too long u mf")
+        return
+    # timestamp = int(datetime.now().strftime('%H%M%S')) * 1000
+    timestamp = int(time.time() * 1000)
+    print("timestamp: " + str(timestamp))
+    s.send(createPacket(True, b'\x04', message, timestamp.to_bytes(8, 'big'), b'\x00\00\00\00\00\00\00\00', varInt(0), b'\x01'))
+
+    # print("sent message: " + str(message))
+    #  varInt(len(message.encode('utf-8'))) +
+
+
 try:
     #Connect to Server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -96,8 +111,7 @@ try:
     #Handshake and Login Start
     s.send(p1)
     s.send(p2)
-    #Login Packet
-    getPacket(False)
+
     print("[+] Login successful")
 
 except Exception as e:
@@ -127,6 +141,7 @@ print("current player position list: "+str(playerCords))
 
 
 def runGame():
+    sendMessage("fuck you")
     while(True):
         try:
             a = getPacket(True)
@@ -140,10 +155,8 @@ def runGame():
                 # print("Teleport ID: " + str(a[1][33:-1]))
                 time.sleep(0.1)
                 s.send(createPacket(True, b'\x00' + a[1][33:-1]))
-            # block entity data
 
-            if a[0] == b'\x61':
-                print("block: " + str(a[1]))
+
 
         except Exception as e:
             # print(e)
@@ -152,7 +165,6 @@ def runGame():
 # north = z + 1   south = z - 1   east =  x + 1   west = x - 1
 # you can choose between spawnpoint or current player position when to begin movment
 def movePlayer(list):
-    a = 0
     x = list[0]
     y = list[1]
     z = list[2]
@@ -172,9 +184,8 @@ def movePlayer(list):
         if i['direction'] == 'west':
             x -= float(i['spaces'])
         s.send(createPacket(True, b'\x13' + struct.pack('d', float(x))[::-1] + struct.pack('d', float(y))[::-1] + struct.pack('d', float(z))[::-1] + b'\x01'))
-        s.send(createPacket(True, b'\x01', varInt(a), ((int(x).to_bytes(26, "little", signed = True) & 0x3FFFFFF) << 38) | (int(z + 1).to_bytes(26, "little", signed = True) & 0x3FFFFFF) << 12) | (int(y).to_bytes(12, "little", signed = True) & 0xFFF))
-        a+=1
-
+        # s.send(createPacket(True, b'\x01', varInt(a), ((int(x).to_bytes(26, "little", signed = True) & 0x3FFFFFF) << 38) | (int(z + 1).to_bytes(26, "little", signed = True) & 0x3FFFFFF) << 12) | (int(y).to_bytes(12, "little", signed = True) & 0xFFF))
+        # sendMessage("fuck you")
 
 if __name__ == '__main__':
     Thread(target = runGame).start()
